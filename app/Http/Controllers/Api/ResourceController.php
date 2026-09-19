@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreResourceRequest;
 use App\Http\Resources\ResourceResource;
+use App\Models\Consultation;
 use App\Models\ContributionRequest;
 use App\Models\Resource;
 use Illuminate\Http\Request;
@@ -12,15 +13,56 @@ use Illuminate\Support\Facades\Storage;
 
 class ResourceController extends Controller
 {
-    public function index(Request $request)
-    {
-        $resources = Resource::with('category')
-            ->validated()
-            ->latest()
-            ->paginate(20);
+   public function index(Request $request)
+{
+    $query = Resource::with('category')->validated();
 
-        return ResourceResource::collection($resources);
+    // --- Recherche texte ---
+    if ($request->filled('search')) {
+        $search = $request->input('search');
+        $query->where(function ($q) use ($search) {
+            $q->where('title', 'like', "%{$search}%")
+            ->orWhere('authors', 'like', "%{$search}%")
+            ->orWhere('description', 'like', "%{$search}%");
+        });
     }
+
+    // --- Filtres ---
+    if ($request->filled('category_id')) {
+        $query->where('category_id', $request->input('category_id'));
+    }
+
+    if ($request->filled('type')) {
+        $query->where('type', $request->input('type'));
+    }
+
+    if ($request->filled('language')) {
+        $query->where('language', $request->input('language'));
+    }
+
+    if ($request->filled('date_from')) {
+        $query->whereDate('publication_date', '>=', $request->input('date_from'));
+    }
+
+    if ($request->filled('date_to')) {
+        $query->whereDate('publication_date', '<=', $request->input('date_to'));
+    }
+
+    // --- Tri ---
+    $sort = $request->input('sort', 'recent'); // valeur par défaut
+
+    match ($sort) {
+        'recent' => $query->latest(),
+        'oldest' => $query->oldest(),
+        'popular' => $query->withCount('consultations')->orderByDesc('consultations_count'),
+        'rating' => $query->withAvg('reviews', 'rating')->orderByDesc('reviews_avg_rating'),
+        default => $query->latest(),
+    };
+
+    $resources = $query->paginate(20);
+
+    return ResourceResource::collection($resources);
+}
 
     public function store(StoreResourceRequest $request)
     {
@@ -68,12 +110,18 @@ class ResourceController extends Controller
         return new ResourceResource($resource->load('category', 'user'));
     }
 
-    public function show(Resource $resource)
-    {
-        $resource->load('category', 'user', 'reviews');
+    public function show(Request $request, Resource $resource)
+{
+    $resource->load('category', 'user', 'reviews');
 
-        return new ResourceResource($resource);
-    }
+    Consultation::create([
+        'user_id' => $request->user()->id,
+        'resource_id' => $resource->id,
+        'consulted_at' => now(),
+    ]);
+
+    return new ResourceResource($resource);
+}
 
     public function update(Request $request, Resource $resource)
     {
@@ -113,4 +161,15 @@ class ResourceController extends Controller
             $resource->title . '.' . pathinfo($resource->file_path, PATHINFO_EXTENSION)
         );
     }
+    public function myHistory(Request $request)
+{
+    $consultations = Consultation::where('user_id', $request->user()->id)
+        ->with('resource.category')
+        ->latest('consulted_at')
+        ->paginate(20);
+
+    return ResourceResource::collection(
+        $consultations->through(fn($c) => $c->resource)
+    );
+}
 }

@@ -12,7 +12,9 @@ class UserResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'email' => $this->when($request->user()?->hasAnyRole(['moderator', 'admin']), $this->email),
             'department' => $this->department,
+            'roles' => $this->getRoleNames(),
         ];
     }
 }
