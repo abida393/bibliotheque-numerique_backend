@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ContributionRequestResource;
 use App\Models\ContributionRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ContributionRequestController extends Controller
 {
@@ -39,13 +40,15 @@ class ContributionRequestController extends Controller
             return response()->json(['message' => 'Cette demande a déjà été traitée.'], 409);
         }
 
-        $contributionRequest->update([
-            'status' => 'validated',
-            'moderator_id' => $request->user()->id,
-            'processed_at' => now(),
-        ]);
-
-        $contributionRequest->resource->update(['status' => 'validated']);
+        // M7: wrap both updates in a transaction for atomicity
+        DB::transaction(function () use ($request, $contributionRequest) {
+            $contributionRequest->update([
+                'status'       => 'validated',
+                'moderator_id' => $request->user()->id,
+                'processed_at' => now(),
+            ]);
+            $contributionRequest->resource->update(['status' => 'validated']);
+        });
 
         return new ContributionRequestResource($contributionRequest->load('resource', 'moderator'));
     }
@@ -60,14 +63,16 @@ class ContributionRequestController extends Controller
             return response()->json(['message' => 'Cette demande a déjà été traitée.'], 409);
         }
 
-        $contributionRequest->update([
-            'status' => 'rejected',
-            'moderator_id' => $request->user()->id,
-            'comment' => $request->comment,
-            'processed_at' => now(),
-        ]);
-
-        $contributionRequest->resource->update(['status' => 'rejected']);
+        // M7: wrap both updates in a transaction for atomicity
+        DB::transaction(function () use ($request, $contributionRequest) {
+            $contributionRequest->update([
+                'status'       => 'rejected',
+                'moderator_id' => $request->user()->id,
+                'comment'      => $request->comment,
+                'processed_at' => now(),
+            ]);
+            $contributionRequest->resource->update(['status' => 'rejected']);
+        });
 
         return new ContributionRequestResource($contributionRequest->load('resource', 'moderator'));
     }

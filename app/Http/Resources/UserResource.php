@@ -9,12 +9,19 @@ class UserResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $isSelf  = $request->user()?->id === $this->id;
+        $isStaff = $request->user()?->hasAnyRole(['moderator', 'admin']);
+
         return [
-            'id' => $this->id,
-            'name' => $this->name,
-            'email' => $this->when($request->user()?->hasAnyRole(['moderator', 'admin']), $this->email),
+            'id'         => $this->id,
+            'name'       => $this->name,
+            // Own email is always visible to the owner; admin/moderator sees all emails
+            'email'      => $this->when($isSelf || $isStaff, $this->email),
             'department' => $this->department,
-            'roles' => $this->getRoleNames(),
+            'roles'      => $this->getRoleNames(),
+            'resources_count' => $this->whenCounted('resources'),
+            'favorites_count' => $this->whenCounted('favorites'),
+            'reviews_count'   => $this->whenCounted('reviews'),
         ];
     }
 }

@@ -20,14 +20,17 @@ class Resource extends Model
         'file_path',
         'file_hash',
         'status',
+        'ai_summary',
+        'ai_indexing_failed'
     ];
 
     protected function casts(): array
-    {
-        return [
-            'publication_date' => 'date',
-        ];
-    }
+{
+    return [
+        'publication_date' => 'date',
+        'ai_indexing_failed' => 'boolean',
+    ];
+}
 
     // --- Relations ---
 

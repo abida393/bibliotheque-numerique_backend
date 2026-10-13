@@ -6,27 +6,48 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ResourceResource;
 use App\Models\Favorite;
 use App\Models\Resource;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class FavoriteController extends Controller
 {
     public function index(Request $request)
     {
-        $resources = Resource::whereHas('favorites', function ($query) use ($request) {
-            $query->where('user_id', $request->user()->id);
-        })->with('category')->paginate(20);
+        // M5: only return favorites that are still validated
+        $resources = Resource::validated()
+            ->whereHas('favorites', function ($query) use ($request) {
+                $query->where('user_id', $request->user()->id);
+            })
+            ->with('category')
+            ->paginate($request->input('per_page', 9));
 
         return ResourceResource::collection($resources);
     }
 
     public function store(Request $request, Resource $resource)
     {
-        $favorite = Favorite::firstOrCreate([
-            'user_id' => $request->user()->id,
-            'resource_id' => $resource->id,
-        ]);
+        // M5: only allow favoriting validated resources
+        if ($resource->status !== 'validated') {
+            return response()->json(['message' => 'Seules les ressources validées peuvent être mises en favori.'], 403);
+        }
 
-        return response()->json(['message' => 'Ajouté aux favoris'], 201);
+        try {
+            $favorite = Favorite::firstOrCreate(
+                [
+                    'user_id'     => $request->user()->id,
+                    'resource_id' => $resource->id,
+                ],
+                [
+                    'created_at'  => now(),
+                ]
+            );
+            $status = $favorite->wasRecentlyCreated ? 201 : 200;
+        } catch (QueryException $e) {
+            // Race condition safety net
+            $status = 200;
+        }
+
+        return response()->json(['message' => 'Ajouté aux favoris'], $status);
     }
 
     public function destroy(Request $request, Resource $resource)

@@ -12,18 +12,18 @@ class StoreResourceRequest extends FormRequest
     }
 
     public function rules(): array
-    {
-        return [
-            'title' => 'required|string|max:255',
-            'authors' => 'nullable|string|max:255',
-            'category_id' => 'required|exists:categories,id',
-            'language' => 'nullable|string|max:50',
-            'publication_date' => 'nullable|date',
-            'description' => 'nullable|string',
-            'file' => 'required|file|mimes:pdf,doc,docx,ppt,pptx|max:102400', // 100 Mo en Ko
-        ];
-    }
-
+{
+    return [
+        'title' => 'required|string|max:255',
+        'authors' => 'nullable|string|max:255',
+        'category_id' => 'required|exists:categories,id',
+        'language' => 'nullable|string|max:50',
+        'publication_date' => 'nullable|date',
+        'description' => 'nullable|string',
+        'file' => 'required|file|mimes:pdf,doc,docx,ppt,pptx|max:102400',
+        'parent_resource_id' => 'nullable|exists:resources,id',
+    ];
+}
     public function messages(): array
     {
         return [

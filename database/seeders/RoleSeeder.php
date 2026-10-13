@@ -9,8 +9,9 @@ class RoleSeeder extends Seeder
 {
     public function run(): void
     {
-        Role::create(['name' => 'user']);
-        Role::create(['name' => 'moderator']);
-        Role::create(['name' => 'admin']);
+        // firstOrCreate makes the seeder idempotent — safe to re-run without migrate:fresh
+        Role::firstOrCreate(['name' => 'user',      'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'moderator', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'admin',     'guard_name' => 'web']);
     }
 }

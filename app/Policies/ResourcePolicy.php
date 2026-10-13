@@ -7,6 +7,13 @@ use App\Models\User;
 
 class ResourcePolicy
 {
+    public function view(User $user, Resource $resource): bool
+    {
+        return $resource->status === 'validated'
+            || $resource->user_id === $user->id
+            || $user->hasAnyRole(['moderator', 'admin']);
+    }
+
     public function update(User $user, Resource $resource): bool
     {
         // Le propriétaire peut modifier sa ressource tant qu'elle est en attente

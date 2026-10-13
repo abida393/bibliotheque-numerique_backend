@@ -34,5 +34,10 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-
+    'ai' => [
+    'url' => env('AI_SERVICE_URL', 'http://localhost:8001'),
+    'token' => env('AI_SERVICE_TOKEN') ?: (env('APP_KEY')
+        ? hash_hmac('sha256', 'bibliotheque-ai-service', env('APP_KEY'))
+        : null),
+],
 ];

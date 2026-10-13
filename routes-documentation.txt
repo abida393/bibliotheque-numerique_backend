@@ -1,0 +1,184 @@
+API ROUTES DOCUMENTATION
+========================
+
+Base URL
+--------
+Laravel API: http://localhost:8000/api
+AI service:  http://localhost:8001
+
+Authentication
+--------------
+Protected Laravel routes require:
+Authorization: Bearer {sanctum_token}
+Accept: application/json
+
+
+PUBLIC AUTHENTICATION
+---------------------
+
+POST /register
+  Register a user. Required: name, email, password, password_confirmation.
+  Optional: department.
+
+POST /login
+  Authenticate a user. Required: email, password.
+  Returns a Sanctum token.
+
+
+AUTHENTICATED USER ROUTES
+-------------------------
+
+POST /logout
+  Revoke the current Sanctum token.
+
+GET /me
+  Return the authenticated user.
+
+GET /categories
+  List root categories with their children.
+
+GET /categories/{category}
+  Show one category, its children, and its resources.
+
+GET /resources
+  List validated resources. Supports search, category_id, type, language,
+  date_from, date_to, sort, and page query parameters.
+
+GET /resources/{resource}
+  Show a resource and record a consultation.
+
+GET /resources/{resource}/download
+  Download the resource file.
+
+POST /resources
+  Upload a resource. Required multipart fields: title, category_id, file.
+  Optional: authors, language, publication_date, description,
+  parent_resource_id.
+  Creates a pending contribution and dispatches AI indexing.
+
+PUT /resources/{resource}
+  Update a resource. The owner can update pending resources; moderators and
+  admins can update any resource.
+
+DELETE /resources/{resource}
+  Delete a resource, its stored file, and its AI-service index.
+
+GET /my-contributions
+  List contribution requests belonging to the authenticated user.
+
+GET /favorites
+  List the authenticated user's favorites.
+
+POST /resources/{resource}/favorite
+  Add a resource to favorites.
+
+DELETE /resources/{resource}/favorite
+  Remove a resource from favorites.
+
+GET /resources/{resource}/reviews
+  List reviews for a resource.
+
+POST /resources/{resource}/reviews
+  Add a review. Required: rating (integer 1 to 5).
+  Optional: comment.
+
+DELETE /reviews/{review}
+  Delete an own review. Moderators and admins can delete any review.
+
+GET /my-history
+  List the authenticated user's consultation history.
+
+GET /resources/{resource}/conversation
+  Get or create the authenticated user's conversation for a resource.
+
+POST /resources/{resource}/ask
+  Ask the AI a question about an indexed resource.
+  Required JSON field: question.
+
+
+MODERATOR OR ADMIN ROUTES
+-------------------------
+
+POST /categories
+  Create a category. Optional: parent_id.
+
+PUT /categories/{category}
+  Update a category. Optional: name, parent_id.
+
+DELETE /categories/{category}
+  Delete a category if it has no resources.
+
+GET /contribution-requests
+  List pending contribution requests.
+
+POST /contribution-requests/{contributionRequest}/validate
+  Validate a pending contribution and its resource.
+
+POST /contribution-requests/{contributionRequest}/reject
+  Reject a pending contribution. Required JSON field: comment.
+
+
+ADMIN ONLY ROUTES
+-----------------
+
+GET /admin/users
+  List users. Supports role, search, and page query parameters.
+
+PUT /admin/users/{user}/role
+  Change a user's role. Required JSON field: role (user, moderator, or admin).
+
+DELETE /admin/users/{user}
+  Delete a user. An admin cannot delete their own account.
+
+GET /stats/overview
+  Return resource, pending resource, user, and category totals.
+
+GET /stats/popular-resources
+  Return the ten most consulted validated resources.
+
+GET /stats/resources-by-category
+  Return validated resource counts by category.
+
+GET /stats/activity-trend
+  Return validated resource creation activity for the last 30 days.
+
+
+AI SERVICE ENDPOINTS
+--------------------
+
+These endpoints are served by the separate AI service configured with
+AI_SERVICE_URL (default: http://localhost:8001). They are not Laravel routes.
+All endpoints below except GET /health require the Authorization: Bearer header.
+The token is derived from APP_KEY unless AI_SERVICE_TOKEN is explicitly set.
+Document paths must be under the AI service's configured document roots
+(AI_DOCUMENT_ROOTS), which default to private resources and temporary uploads.
+
+POST {AI_SERVICE_URL}/analyze
+  Called by the IndexResourceForAI queue job after resource upload.
+  JSON payload:
+    resource_id
+    file_path
+    file_type
+    existing_categories
+  Expected response fields include summary and chunks. Each chunk contains
+  text, embedding_ref, and optionally chunk_index.
+
+POST {AI_SERVICE_URL}/ask
+  Called when an authenticated user asks a question about an indexed resource.
+  JSON payload:
+    resource_id
+    question
+  Expected response fields: answer and optionally sources.
+
+DELETE {AI_SERVICE_URL}/resources/{resource_id}
+  Called when Laravel deletes a resource, to remove its AI index.
+
+
+OTHER APPLICATION ROUTES
+------------------------
+
+GET /
+  Laravel welcome page.
+
+GET /up
+  Laravel application health check.
